@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Request, UseGuards, Body } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PlanId } from './plans.constant';
+import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 
 @Controller()
 export class SubscriptionController {
@@ -28,8 +28,8 @@ export class SubscriptionController {
   @Post('subscription')
   createSubscription(
     @Request() req: { user: { sub: string } },
-    @Body('planId') planId: PlanId,
+    @Body() dto: CreateSubscriptionDto,
   ) {
-    return this.subscriptionService.createSubscription(req.user.sub, planId);
+    return this.subscriptionService.createSubscription(req.user.sub, dto.planId);
   }
 }

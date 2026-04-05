@@ -51,10 +51,6 @@ export class SubscriptionService {
     userId: string,
     planId: PlanId,
   ): Promise<SubscriptionDocument> {
-    if (!Object.values(PlanId).includes(planId)) {
-      throw new BadRequestException(`Invalid planId. Allowed values are: ${Object.values(PlanId).join(', ')}`);
-    }
-
     const existing = await this.subscriptionModel
       .findOne({ userId: new Types.ObjectId(userId), status: 'active' })
       .exec();
