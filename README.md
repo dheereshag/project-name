@@ -16,6 +16,7 @@ A NestJS REST API for managing insurance subscriptions with JWT-based authentica
   - [Auth](#auth)
   - [Plans](#plans)
   - [Subscriptions](#subscriptions)
+  - [Stripe Checkout](#stripe-checkout)
   - [Admin](#admin)
 - [Postman Collection](#postman-collection)
 - [Swagger Docs](#swagger-docs)
@@ -30,6 +31,7 @@ A NestJS REST API for managing insurance subscriptions with JWT-based authentica
 - **JWT** — Authentication
 - **bcrypt** — Password hashing
 - **class-validator** — Request validation
+- **Stripe** — Payment processing (Checkout Sessions + Webhooks)
 - **Swagger** — API documentation
 
 ---
@@ -98,14 +100,20 @@ PORT=3000
 MONGO_URI=mongodb://localhost:27017/upcover
 JWT_SECRET=your_jwt_secret_here
 JWT_EXPIRES_IN=1y
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-| Variable         | Description                       | Default |
-|------------------|-----------------------------------|---------|
-| `PORT`           | Port the server listens on        | `3000`  |
-| `MONGO_URI`      | MongoDB connection string         | —       |
-| `JWT_SECRET`     | Secret key for signing JWT tokens | —       |
-| `JWT_EXPIRES_IN` | JWT token expiration duration     | `1y`    |
+| Variable                  | Description                                          | Default |
+|---------------------------|------------------------------------------------------|---------|
+| `PORT`                    | Port the server listens on                           | `3000`  |
+| `MONGO_URI`               | MongoDB connection string                            | —       |
+| `JWT_SECRET`              | Secret key for signing JWT tokens                    | —       |
+| `JWT_EXPIRES_IN`          | JWT token expiration duration                        | `1y`    |
+| `STRIPE_SECRET_KEY`       | Stripe secret API key                                | —       |
+| `STRIPE_PUBLISHABLE_KEY`  | Stripe publishable key (for frontend use)            | —       |
+| `STRIPE_WEBHOOK_SECRET`   | Stripe webhook signing secret (`whsec_...`)          | —       |
 
 ---
 
@@ -209,35 +217,6 @@ Returns all available subscription plans. No authentication required.
 
 All subscription routes require a valid JWT token.
 
-#### `POST /subscription`
-
-Create or update the authenticated user's subscription.
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Request body:**
-
-```json
-{
-  "planId": "basic"
-}
-```
-
-Valid `planId` values: `basic`, `standard`, `premium`
-
-**Response `201`:**
-
-```json
-{
-  "userId": "...",
-  "planId": "basic",
-  "status": "active",
-  "startDate": "2026-04-05T00:00:00.000Z"
-}
-```
-
----
-
 #### `GET /subscription`
 
 Get the authenticated user's current subscription.
@@ -251,9 +230,12 @@ Get the authenticated user's current subscription.
   "userId": "...",
   "planId": "standard",
   "status": "active",
-  "startDate": "2026-04-05T00:00:00.000Z"
+  "stripeSessionId": "cs_test_...",
+  "stripePaymentIntentId": "pi_..."
 }
 ```
+
+Possible `status` values: `pending` (checkout started), `active` (payment confirmed), `cancelled`.
 
 ---
 
@@ -267,9 +249,75 @@ Cancel the authenticated user's active subscription.
 
 ```json
 {
-  "message": "Subscription cancelled successfully"
+  "userId": "...",
+  "planId": "basic",
+  "status": "cancelled"
 }
 ```
+
+---
+
+### Stripe Checkout
+
+Payments are handled via **Stripe Checkout Sessions** (one-time payment mode). The flow is:
+
+1. Client calls `POST /subscription/checkout` → receives a Stripe-hosted checkout URL
+2. User completes payment on Stripe's page
+3. Stripe sends a `checkout.session.completed` webhook to `POST /stripe/webhook`
+4. The subscription status updates from `pending` → `active` in MongoDB
+
+#### `POST /subscription/checkout`
+
+Create a Stripe Checkout Session for the given plan.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request body:**
+
+```json
+{
+  "planId": "basic",
+  "successUrl": "https://yourapp.com/success",
+  "cancelUrl": "https://yourapp.com/cancel"
+}
+```
+
+Valid `planId` values: `basic`, `standard`, `premium`
+
+**Response `201`:**
+
+```json
+{
+  "url": "https://checkout.stripe.com/c/pay/cs_test_..."
+}
+```
+
+Redirect the user to `url` to complete payment.
+
+---
+
+#### `POST /stripe/webhook`
+
+Stripe webhook endpoint. **Do not call this directly** — it is called by Stripe after a successful payment.
+
+Requires the raw request body and a valid `stripe-signature` header. Register this URL in the Stripe Dashboard under **Developers → Webhooks**, listening for the `checkout.session.completed` event.
+
+**Local development with ngrok:**
+
+```bash
+ngrok http 3000
+# Use the generated https URL as your webhook endpoint:
+# https://xxxx.ngrok-free.app/stripe/webhook
+```
+
+Copy the webhook signing secret shown in the Stripe Dashboard into your `.env` as `STRIPE_WEBHOOK_SECRET`.
+
+**Test cards (Stripe test mode):**
+
+| Region | Card number | Expiry | CVC |
+|---|---|---|---|
+| Global | `4242 4242 4242 4242` | Any future (e.g. `12/34`) | Any 3 digits |
+| India | `4000 0035 6000 0008` | Any future (e.g. `12/34`) | Any 3 digits |
 
 ---
 
