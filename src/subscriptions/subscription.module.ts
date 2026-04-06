@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
 import { SubscriptionController } from './subscription.controller';
 import { SubscriptionService } from './subscription.service';
+import { StripeService } from './stripe.service';
 import {
   Subscription,
   SubscriptionSchema,
@@ -16,8 +18,9 @@ import { RolesGuard } from '../auth/roles.guard';
       { name: Subscription.name, schema: SubscriptionSchema },
     ]),
     AuthModule,
+    ConfigModule,
   ],
   controllers: [SubscriptionController],
-  providers: [SubscriptionService, JwtAuthGuard, RolesGuard],
+  providers: [SubscriptionService, StripeService, JwtAuthGuard, RolesGuard],
 })
 export class SubscriptionModule {}

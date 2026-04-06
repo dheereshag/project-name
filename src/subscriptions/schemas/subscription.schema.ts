@@ -4,7 +4,7 @@ import { PlanId } from '../plans.constant';
 
 export type SubscriptionDocument = HydratedDocument<Subscription>;
 
-export type SubscriptionStatus = 'active' | 'cancelled';
+export type SubscriptionStatus = 'pending' | 'active' | 'cancelled';
 
 @Schema({ timestamps: true })
 export class Subscription {
@@ -14,11 +14,18 @@ export class Subscription {
   @Prop({ required: true, type: String, enum: PlanId })
   planId!: PlanId;
 
-  @Prop({ required: true, enum: ['active', 'cancelled'], default: 'active' })
+  @Prop({
+    required: true,
+    enum: ['pending', 'active', 'cancelled'],
+    default: 'pending',
+  })
   status!: SubscriptionStatus;
 
   @Prop({ required: false })
-  stripeSubscriptionId!: string;
+  stripeSessionId?: string;
+
+  @Prop({ required: false })
+  stripePaymentIntentId?: string;
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);

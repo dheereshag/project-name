@@ -1,10 +1,21 @@
-import { Controller, Get, Post, Request, UseGuards, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Request,
+  UseGuards,
+  Body,
+  Headers,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
-import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 
 @Controller()
 export class SubscriptionController {
@@ -28,14 +39,30 @@ export class SubscriptionController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('subscription')
-  createSubscription(
+  @Post('subscription/checkout')
+  createCheckoutSession(
     @Request() req: { user: { sub: string } },
-    @Body() dto: CreateSubscriptionDto,
+    @Body() dto: CreateCheckoutSessionDto,
   ) {
-    return this.subscriptionService.createSubscription(
+    return this.subscriptionService.createCheckoutSession(
       req.user.sub,
       dto.planId,
+      dto.successUrl,
+      dto.cancelUrl,
+    );
+  }
+
+  // Stripe sends raw body for signature verification; no auth guard on this endpoint
+  @Post('stripe/webhook')
+  @HttpCode(HttpStatus.OK)
+  handleStripeWebhook(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    @Req() req: any,
+    @Headers('stripe-signature') signature: string,
+  ) {
+    return this.subscriptionService.handleWebhookEvent(
+      req.rawBody as Buffer,
+      signature,
     );
   }
 
