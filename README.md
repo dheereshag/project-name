@@ -144,11 +144,14 @@ Register a new user account.
 }
 ```
 
+> Password must be at least 6 characters.
+
 **Response `201`:**
 
 ```json
 {
-  "access_token": "eyJhbGci..."
+  "message": "User registered successfully",
+  "email": "user@example.com"
 }
 ```
 
@@ -384,7 +387,10 @@ Retrieve all subscriptions across all users.
     "userId": "...",
     "planId": "premium",
     "status": "active",
-    "startDate": "2026-04-01T00:00:00.000Z"
+    "stripeSessionId": "cs_test_...",
+    "stripePaymentIntentId": "pi_...",
+    "createdAt": "2026-04-01T00:00:00.000Z",
+    "updatedAt": "2026-04-01T00:00:00.000Z"
   }
 ]
 ```
